@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docbank - Login</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body class="pagina-auth">
+    <aside class="barra-lateral">
+        <div class="marca" id="logo-db" title="Docbank">Db</div>
+    </aside>
+
+    <div class="faixa-branca">
+        <h1>Login</h1>
+
+        <form id="form-login" novalidate>
+            <div class="campo">
+                <label for="inp-email">Email:</label>
+                <input type="email" id="inp-email" maxlength="120" autocomplete="email">
+                <span class="dica">Email usado na criação da conta</span>
+                <span class="erro">Informe o email da sua conta</span>
+            </div>
+
+            <div class="campo">
+                <label for="inp-senha">Senha:</label>
+                <input type="password" id="inp-senha" maxlength="60" autocomplete="current-password">
+                <span class="dica">As senhas têm um mínimo de 8 caracteres</span>
+                <span class="erro">Informe sua senha</span>
+            </div>
+        </form>
+
+        <div class="rodape-form">
+            <button type="button" id="btn-cancelar" class="btn-secundario">Cancelar</button>
+            <button type="submit" form="form-login" class="btn-primario">Entrar</button>
+        </div>
+    </div>
+
+    <aside class="barra-lateral barra-direita"></aside>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script src="../JS/login.js"></script>
+</body>
+
+</html>

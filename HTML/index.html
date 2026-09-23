@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docbank - Tela Inicial</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+    <base target="_blank">
+</head>
+
+<body>
+    <header>
+        <div class="logo" title="Docbank">Docbank</div>
+        <div class="header-acoes">
+            <button id="btn-cadastrar" class="btn-primario" type="button">Cadastrar</button>
+            <button id="btn-entrar" class="btn-primario" type="button">Entrar</button>
+        </div>
+    </header>
+
+    <main>
+        <nav class="sidebar">
+            <button id="btn-painel" type="button">Painel de Controle</button>
+            <hr class="divisor">
+            <button id="btn-submeter" type="button">Submeter Documento</button>
+            <hr class="divisor">
+            <button id="btn-biblioteca" type="button">Biblioteca Pessoal</button>
+
+            <div class="info-usuario" id="info-usuario">Usuário: Nenhum usuário logado</div>
+            <button id="btn-sair" type="button">Sair</button>
+        </nav>
+
+        <section class="conteudo">
+            <div class="barra-pesquisa">
+                <label for="pesquisa">Pesquisar:</label>
+                <input type="search" id="pesquisa" placeholder="Digite pelo menos 2 caracteres para filtrar..."
+                    autocomplete="off">
+            </div>
+
+            <div class="tabela-container">
+                <table id="tabela-documentos">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Tópico</th>
+                            <th>LINK/DOI/PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <p class="msg-vazio" id="msg-vazio" style="display:none;">Nenhum documento encontrado.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="acoes-rodape">
+        <div class="grupo-acoes">
+            <button id="btn-deletar" class="btn-perigo" type="button">Deletar</button>
+            <button id="btn-editar" class="btn-secundario" type="button">Editar</button>
+            <button id="btn-favoritos" class="btn-secundario" type="button">
+                Adicionar aos favoritos
+            </button>
+            <button id="btn-abrir" class="btn-primario" type="button">Abrir Documento</button>
+        </div>
+    </footer>
+
+    <div class="modal-fundo" id="modal-fundo">
+        <div class="modal">
+            <h2 id="modal-titulo">Submeter documento</h2>
+            <form id="form-documento" novalidate>
+                <input type="hidden" id="campo-id">
+
+                <div class="campo">
+                    <label for="inp-titulo">Título</label>
+                    <input type="text" id="inp-titulo" maxlength="120">
+                    <span class="erro">Informe um título com ao menos 3 caracteres.</span>
+                </div>
+
+                <div class="campo">
+                    <label for="inp-topico">Tópico</label>
+                    <input type="text" id="inp-topico" maxlength="60">
+                    <span class="erro">Informe um tópico com ao menos 3 caracteres.</span>
+                </div>
+
+                <div class="campo">
+                    <label>Tipo de documento:</label>
+                    <div class="escolha-tipo">
+                        <label><input type="radio" name="tipo-doc" value="link" checked> Link (DOI/URL)</label>
+                        <label><input type="radio" name="tipo-doc" value="pdf"> PDF (arquivo local)</label>
+                    </div>
+                </div>
+
+                <div class="campo" id="campo-link">
+                    <label for="inp-link">LINK / DOI</label>
+                    <input type="url" id="inp-link" placeholder="https://...">
+                    <span class="erro">Informe um link que comece com http:// ou https://.</span>
+                </div>
+
+                <div class="campo" id="campo-arquivo" style="display:none;">
+                    <label for="inp-arquivo">Arquivo PDF</label>
+                    <input type="file" id="inp-arquivo" accept="application/pdf,.pdf">
+                    <span class="dica">Apenas arquivos no formato .pdf são suportados.</span>
+                    <span class="erro">Selecione um arquivo PDF válido.</span>
+                </div>
+
+                <div class="modal-acoes">
+                    <button type="button" id="modal-cancelar" class="btn-secundario">Cancelar</button>
+                    <button type="submit" class="btn-primario">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script src="../JS/dados.js"></script>
+    <script src="../JS/script.js"></script>
+</body>
+
+</html>

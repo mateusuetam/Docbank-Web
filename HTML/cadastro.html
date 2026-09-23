@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docbank - Cadastrar</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+    <base target="_blank">
+</head>
+
+<body class="pagina-auth">
+    <aside class="barra-lateral">
+        <div class="marca" id="logo-db" title="Docbank">Db</div>
+    </aside>
+
+    <div class="faixa-branca">
+        <h1>Cadastrar</h1>
+
+        <form id="form-cadastro" novalidate>
+            <div class="campo">
+                <label for="inp-nome">Nome:</label>
+                <input type="text" id="inp-nome" maxlength="80" autocomplete="name">
+                <span class="dica">Como aparecerá em seu perfil</span>
+                <span class="erro">Por favor, preencha todos os campos antes de continuar</span>
+            </div>
+
+            <div class="campo">
+                <label for="inp-email">Email:</label>
+                <input type="email" id="inp-email" maxlength="120" autocomplete="email">
+                <span class="dica">Exemplo: usuario@exemplo.com</span>
+                <span class="erro">Um email válido é obrigatório (ex: usuario@exemplo.com)</span>
+            </div>
+
+            <div class="campo">
+                <label for="inp-senha">Senha:</label>
+                <input type="password" id="inp-senha" maxlength="60" autocomplete="new-password">
+                <span class="dica">Mínimo de 8 caracteres</span>
+                <span class="erro">A senha deve ter no mínimo 8 caracteres</span>
+            </div>
+
+            <div class="campo">
+                <label for="inp-confirma">Confirme sua senha:</label>
+                <input type="password" id="inp-confirma" maxlength="60" autocomplete="new-password">
+                <span class="erro">Por favor, confirme sua senha</span>
+            </div>
+        </form>
+
+        <div class="rodape-form">
+            <button type="button" id="btn-cancelar" class="btn-secundario">Cancelar</button>
+            <button type="submit" form="form-cadastro" class="btn-primario">Cadastrar</button>
+        </div>
+    </div>
+
+    <aside class="barra-lateral barra-direita"></aside>
+
+    <div class="modal-fundo" id="modal-nivel">
+        <div class="modal">
+            <h2>Qual o nível de acesso da conta?</h2>
+            <div class="opcoes-nivel">
+                <button type="button" data-nivel="Administrador">Administrador</button>
+                <button type="button" data-nivel="Moderador">Moderador</button>
+                <button type="button" data-nivel="Usuario">Usuario</button>
+            </div>
+            <div class="senha-nivel" id="bloco-senha-nivel">
+                <div class="campo">
+                    <label for="inp-senha-nivel">Senha de autorização:</label>
+                    <input type="password" id="inp-senha-nivel" placeholder="Informe a senha do nível">
+                </div>
+                <div class="modal-acoes">
+                    <button type="button" id="btn-voltar-nivel" class="btn-secundario">Voltar</button>
+                    <button type="button" id="btn-confirmar-nivel" class="btn-primario">Confirmar</button>
+                </div>
+            </div>
+            <p class="msg-modal" id="msg-modal-nivel"></p>
+        </div>
+    </div>
+
+    <div class="modal-fundo" id="modal-cancelamento">
+        <div class="modal modal-confirm">
+            <h2>Cancelar cadastro</h2>
+            <p>Deseja cancelar o cadastro?</p>
+            <div class="modal-acoes">
+                <button type="button" id="btn-cancelar-nao" class="btn-secundario">Continuar cadastrando</button>
+                <button type="button" id="btn-cancelar-sim" class="btn-perigo">Cancelar cadastro</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script src="../JS/cadastro.js"></script>
+</body>
+
+</html>

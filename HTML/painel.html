@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docbank - Painel de Controle</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="logo" id="logo-docbank" title="Docbank">Docbank</div>
+        <div class="titulo-header">Painel de Controle</div>
+    </header>
+
+    <main>
+        <section class="conteudo conteudo-painel">
+            <h2 class="titulo-secao">Arquivos na espera de aprovação</h2>
+
+            <div class="tabela-container">
+                <table id="tabela-pendentes">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Tópico</th>
+                            <th>LINK/DOI/PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <p class="msg-vazio" id="msg-vazio" style="display:none;"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="biblioteca-rodape">
+        <button id="btn-voltar" class="btn-secundario" type="button">Voltar</button>
+        <button id="btn-admin" class="btn-secundario" type="button">Sessão do Admin.</button>
+        <div class="grupo-acoes">
+            <button id="btn-rejeitar" class="btn-perigo" type="button">Rejeitar Documento</button>
+            <button id="btn-aprovar" class="btn-sucesso" type="button">Aprovar Documento</button>
+            <button id="btn-abrir" class="btn-primario" type="button">Abrir Documento</button>
+        </div>
+    </footer>
+
+    <div class="modal-fundo" id="modal-admin">
+        <div class="modal modal-largo">
+            <h2>Sessão do Administrador</h2>
+
+            <div class="tabela-container tabela-admin">
+                <table id="tabela-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuário</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <p class="msg-vazio" id="msg-vazio-usuarios" style="display:none;">Nenhum usuário cadastrado.</p>
+            </div>
+
+            <div class="modal-acoes modal-acoes-admin">
+                <button type="button" id="btn-fechar-admin" class="btn-secundario">Fechar</button>
+                <div class="grupo-acoes">
+                    <button type="button" id="btn-deletar-usuario" class="btn-perigo">Deletar</button>
+                    <button type="button" id="btn-suspender-usuario" class="btn-perigo">Suspender</button>
+                    <button type="button" id="btn-alterar-cargo" class="btn-secundario">Alterar Cargo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-fundo" id="modal-confirm">
+        <div class="modal modal-confirm">
+            <h2 id="confirm-titulo">Confirmar ação</h2>
+            <p id="confirm-texto">Deseja continuar?</p>
+            <div class="modal-acoes">
+                <button type="button" id="confirm-nao" class="btn-secundario">Não</button>
+                <button type="button" id="confirm-sim" class="btn-perigo">Sim</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-fundo" id="modal-cargo">
+        <div class="modal">
+            <h2>Alterar cargo do usuário</h2>
+            <div class="opcoes-nivel">
+                <button type="button" data-cargo="Usuario">Usuario</button>
+                <button type="button" data-cargo="Moderador">Moderador</button>
+                <button type="button" data-cargo="Administrador">Administrador</button>
+            </div>
+            <div class="modal-acoes">
+                <button type="button" id="btn-cancelar-cargo" class="btn-secundario">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script src="../JS/dados.js"></script>
+    <script src="../JS/painel.js"></script>
+</body>
+
+</html>

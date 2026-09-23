@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docbank - Biblioteca Pessoal</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="logo" id="logo-docbank" title="Docbank">Docbank</div>
+        <div class="titulo-header">Biblioteca Pessoal</div>
+    </header>
+
+    <main>
+        <section class="conteudo conteudo-biblioteca">
+            <div class="barra-pesquisa">
+                <label for="pesquisa">Pesquisar nos favoritos:</label>
+                <input type="search" id="pesquisa" placeholder="Digite pelo menos 2 caracteres para filtrar..."
+                    autocomplete="off">
+            </div>
+
+            <div class="tabela-container">
+                <table id="tabela-favoritos">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Tópico</th>
+                            <th>LINK/DOI/PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <p class="msg-vazio" id="msg-vazio" style="display:none;"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="biblioteca-rodape">
+        <button id="btn-voltar" class="btn-secundario" type="button">Voltar</button>
+        <span class="info-usuario-rodape" id="info-usuario">Usuário: Nenhum usuário logado</span>
+        <div class="grupo-acoes">
+            <button id="btn-remover" class="btn-perigo" type="button">Remover dos favoritos</button>
+            <button id="btn-abrir" class="btn-primario" type="button">Abrir Documento</button>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script src="../JS/dados.js"></script>
+    <script src="../JS/biblioteca.js"></script>
+</body>
+
+</html>
