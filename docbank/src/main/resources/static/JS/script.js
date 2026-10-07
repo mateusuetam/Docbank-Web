@@ -573,21 +573,63 @@
         abrirModal("editar", documentoSelecionado);
     }
 
-    function adicionarFavoritos() {
+    async function adicionarFavoritos() {
         if (!exigirLogin("Adicionar aos favoritos"))
             return;
+
         if (!documentoSelecionado) {
             toast("Selecione um documento para favoritar.", true);
             return;
         }
-        const chave = "docbank_favoritos_" + Sessao.usuario.email;
-        const favs = JSON.parse(localStorage.getItem(chave) || "[]");
 
-        if (!favs.includes(documentoSelecionado.id)) {
-            favs.push(documentoSelecionado.id);
-            localStorage.setItem(chave, JSON.stringify(favs));
+        const id = documentoSelecionado.id;
+        const titulo = documentoSelecionado.titulo;
+
+        try {
+            const csrfToken = await obterCsrfToken();
+
+            const resposta = await fetch(`/api/favoritos/${id}`, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-XSRF-TOKEN": csrfToken
+                }
+            });
+
+            let dados = {};
+
+            try {
+                dados = await resposta.json();
+            } catch {
+                dados = {};
+            }
+
+            if (resposta.status === 204) {
+                toast(`"${titulo}" adicionado aos favoritos.`);
+                return;
+            }
+
+            if (resposta.status === 409) {
+                toast(dados.mensagem || "Este documento já está nos seus favoritos.", true);
+                return;
+            }
+
+            if (resposta.status === 403) {
+                toast(dados.mensagem || "Você não possui permissão para adicionar este documento aos favoritos.", true);
+                return;
+            }
+
+            if (resposta.status === 404) {
+                toast(dados.mensagem || "Documento não encontrado.", true);
+                return;
+            }
+
+            toast(dados.mensagem || "Não foi possível adicionar o documento aos favoritos.", true);
+
+        } catch (erro) {
+            console.error("Erro ao adicionar favorito:", erro);
+            toast("Não foi possível conectar ao servidor.", true);
         }
-        toast(`"${documentoSelecionado.titulo}" adicionado aos favoritos.`);
     }
 
     el.btnAbrir.addEventListener("click", abrirDocumento);
