@@ -16,7 +16,6 @@
     const msgModal = $("#msg-modal-nivel");
     const toastEl = $("#toast");
 
-    const SENHA_NIVEL = "123";
     let nivelEscolhido = null;
     let toastTimer = null;
 
@@ -116,48 +115,110 @@
     }
 
     function confirmarSenhaNivel() {
-        if (inpSenhaNivel.value === SENHA_NIVEL) {
-            criarConta(nivelEscolhido);
-        } else {
-            msgModal.textContent = "Senha de autorização incorreta. Tente novamente.";
-            inpSenhaNivel.value = "";
-            inpSenhaNivel.focus();
+        if (!nivelEscolhido) {
+            msgModal.textContent = "Selecione um nível de acesso.";
+            return;
         }
+
+        const senhaAutorizacao = inpSenhaNivel.value;
+
+        if (!senhaAutorizacao) {
+            msgModal.textContent = "Informe a senha de autorização.";
+            inpSenhaNivel.focus();
+            return;
+        }
+
+        criarConta(nivelEscolhido, senhaAutorizacao);
     }
 
-    function criarConta(nivel) {
+    async function obterCsrfToken() {
+        const resposta = await fetch("/api/auth/csrf", {
+            method: "GET",
+            credentials: "same-origin"
+        });
+
+        if (!resposta.ok) {
+            throw new Error("Não foi possível obter o token de segurança.");
+        }
+
+        const dados = await resposta.json();
+        return dados.token;
+    }
+
+    async function criarConta(nivel, senhaAutorizacao = "") {
         const conta = {
             nome: inpNome.value.trim(),
             email: inpEmail.value.trim().toLowerCase(),
             senha: inpSenha.value,
-            nivel: nivel
+            confirmaSenha: inpConfirma.value,
+            nivel: nivel,
+            senhaAutorizacao: senhaAutorizacao
         };
 
-        const contas = JSON.parse(localStorage.getItem("docbank_contas") || "[]");
-        const existe = contas.some((c) => c.email === conta.email);
-        if (existe) {
-            fecharModalNivel();
-            marcarErro(inpEmail, true);
-            toast("Este email já está cadastrado. Tente fazer login.", true);
-            return;
-        }
-        contas.push(conta);
-        localStorage.setItem("docbank_contas", JSON.stringify(contas));
+        try {
+            const csrfToken = await obterCsrfToken();
 
-        localStorage.setItem(
-            "docbank_usuario",
-            JSON.stringify({ nome: conta.nome, email: conta.email, nivel: conta.nivel })
-        );
+            const resposta = await fetch("/api/auth/cadastro", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-XSRF-TOKEN": csrfToken
+                },
+                body: JSON.stringify(conta)
+            });
 
-        toast(`Conta ${nivel} criada! Entrando no Docbank...`);
-        setTimeout(() => {
-            window.location.href = "index.html";
-        }, 900);
+            let dados = {};
+
+            try {
+                dados = await resposta.json();
+            } catch {
+                dados = {};
+            }
+
+            if (resposta.status === 201) {
+                fecharModalNivel();
+
+                toast(`Conta ${nivel} criada! Entrando no Docbank...`);
+
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 900);
+
+                return;
+            }
+
+            if (resposta.status === 409) {
+                fecharModalNivel();
+                marcarErro(inpEmail, true);
+                toast(dados.mensagem || "Este email já está cadastrado. Tente fazer login.", true);
+                return;
+            }
+
+            if (resposta.status === 403) {
+                msgModal.textContent = dados.mensagem || "Senha de autorização incorreta. Tente novamente.";
+                inpSenhaNivel.value = "";
+                inpSenhaNivel.focus();
+                return;
+            }
+
+            if (resposta.status === 400) {
+                toast(dados.mensagem || "Não foi possível realizar o cadastro.", true);
+                return;
+            }
+
+            toast(dados.mensagem || "Não foi possível realizar o cadastro.", true);
+
+        } catch (erro) {
+            console.error("Erro ao cadastrar usuário:", erro);
+            toast("Não foi possível conectar ao servidor. Tente novamente.", true);
+    }
     }
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();
-        if (validarFormulario()) abrirModalNivel();
+        if (validarFormulario())
+            abrirModalNivel();
     });
 
     [inpNome, inpEmail, inpSenha, inpConfirma].forEach((input) => {
@@ -170,7 +231,8 @@
 
     $("#btn-confirmar-nivel").addEventListener("click", confirmarSenhaNivel);
     inpSenhaNivel.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") confirmarSenhaNivel();
+        if (e.key === "Enter")
+            confirmarSenhaNivel();
     });
 
     $("#btn-voltar-nivel").addEventListener("click", () => {
@@ -203,7 +265,8 @@
     });
 
     document.addEventListener("keydown", (e) => {
-        if (e.key !== "Escape") return;
+        if (e.key !== "Escape")
+            return;
 
         if (modalCancelamento.classList.contains("aberto")) {
             modalCancelamento.classList.remove("aberto");
