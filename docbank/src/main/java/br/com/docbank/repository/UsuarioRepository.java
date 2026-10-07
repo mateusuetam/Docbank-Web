@@ -79,4 +79,72 @@ public class UsuarioRepository {
 
         return key.longValue();
     }
+
+    public List<Usuario> listarTodos() {
+
+        String sql = """
+            SELECT id, nome, email, senha_hash, cargo, status FROM usuarios ORDER BY id
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new Usuario(
+                        rs.getLong("id"),
+                        rs.getString("nome"),
+                        rs.getString("email"),
+                        rs.getString("senha_hash"),
+                        Cargo.valueOf(rs.getString("cargo")),
+                        StatusUsuario.valueOf(rs.getString("status"))
+                )
+        );
+    }
+
+    public Optional<Usuario> buscarPorId(Long id) {
+
+        String sql = """
+            SELECT id, nome, email, senha_hash, cargo, status FROM usuarios WHERE id = ?
+            """;
+
+        List<Usuario> usuarios = jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new Usuario(
+                        rs.getLong("id"),
+                        rs.getString("nome"),
+                        rs.getString("email"),
+                        rs.getString("senha_hash"),
+                        Cargo.valueOf(rs.getString("cargo")),
+                        StatusUsuario.valueOf(rs.getString("status"))
+                ),
+                id
+        );
+
+        return usuarios.stream().findFirst();
+    }
+
+    public int atualizarStatus(Long id, StatusUsuario status) {
+
+        String sql = """
+            UPDATE usuarios SET status = ? WHERE id = ?
+            """;
+
+        return jdbcTemplate.update(sql, status.name(), id);
+    }
+
+    public int atualizarCargo(Long id, Cargo cargo) {
+
+        String sql = """
+            UPDATE usuarios SET cargo = ? WHERE id = ?
+            """;
+
+        return jdbcTemplate.update(sql, cargo.name(), id);
+    }
+
+    public int deletar(Long id) {
+
+        String sql = """
+            DELETE FROM usuarios WHERE id = ?
+            """;
+
+        return jdbcTemplate.update(sql, id);
+    }
 }
