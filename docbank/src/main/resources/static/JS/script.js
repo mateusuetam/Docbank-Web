@@ -49,42 +49,10 @@
         }
     };
 
-    const pendentes = JSON.parse(localStorage.getItem("docbank_pendentes") || "[]");
-
-    let documentos = JSON.parse(localStorage.getItem("docbank_documentos_estado"));
-    if (!documentos) {
-        documentos = [...window.DOCBANK_DOCUMENTOS];
-    }
-
-    const aprovadosSalvos = JSON.parse(localStorage.getItem("docbank_aprovados") || "[]");
-    aprovadosSalvos.forEach((d) => {
-        if (!documentos.some((x) => x.id === d.id))
-            documentos.push(d);
-    });
-
-    function salvarEstadoDocumentos() {
-        localStorage.setItem("docbank_documentos_estado", JSON.stringify(documentos));
-    }
-    salvarEstadoDocumentos();
-
-    function proximoIdDocumento() {
-        const ids = documentos.map((d) => d.id).concat(pendentes.map((d) => d.id));
-        return ids.length ? Math.max(...ids) + 1 : 1;
-    }
-
-    function persistirPdfLocal(id, arquivo) {
-        pdfsEmMemoria[id] = arquivo;
-        if (arquivo && arquivo.size <= 1.5 * 1024 * 1024) {
-            const reader = new FileReader();
-            reader.onload = () => localStorage.setItem("docbank_pdfdata_" + id, reader.result);
-            reader.readAsDataURL(arquivo);
-        }
-    }
+    let documentos = [];
     let documentoSelecionado = null;
-
     let ordenacao = {chave: null, dir: 1};
 
-    const pdfsEmMemoria = {};
     const $ = (sel) => document.querySelector(sel);
     const formDocumento = $("#form-documento");
     const el = {
@@ -195,8 +163,7 @@
                 tr.classList.add("selecionada");
             }
 
-            const ehPdfLocal = doc.link.startsWith("PDF_LOCAL:");
-            const celulaLink = ehPdfLocal ? `<td> ${escapeHtml(doc.link.replace("PDF_LOCAL:", ""))} <em>(arquivo local)</em></td>` : (() => {
+            const celulaLink = doc.tipo === "PDF" ? `<td>${escapeHtml(doc.nomeArquivo || "Arquivo PDF")} <em>(arquivo PDF)</em></td>` : (() => {
                 const linkExtenso = doc.link.length > 28 ? doc.link.slice(0, 28) + "…" : doc.link;
                 return `<td><a href="${escapeHtml(doc.link)}" target="_blank" rel="noopener">${escapeHtml(linkExtenso)}</a></td>`;
             })();
@@ -216,6 +183,36 @@
         const div = document.createElement("div");
         div.textContent = texto;
         return div.innerHTML;
+    }
+
+    async function carregarDocumentos() {
+        try {
+            const resposta = await fetch("/api/documentos", {
+                method: "GET",
+                credentials: "same-origin",
+                cache: "no-store"
+            });
+
+            if (!resposta.ok) {
+                throw new Error(`Falha ao carregar documentos. HTTP ${resposta.status}.`);
+            }
+
+            const novosDocumentos = await resposta.json();
+            const idSelecionado = documentoSelecionado ? documentoSelecionado.id : null;
+
+            documentos = novosDocumentos;
+            documentoSelecionado = idSelecionado ? documentos.find((d) => d.id === idSelecionado) || null : null;
+
+            atualizarTabela();
+        } catch (erro) {
+            console.error("Erro ao carregar documentos:", erro);
+
+            documentos = [];
+            documentoSelecionado = null;
+            atualizarTabela();
+
+            toast("Não foi possível carregar os documentos do servidor.", true);
+        }
     }
 
     function selecionarDocumento(doc, tr) {
@@ -286,7 +283,7 @@
             el.inpTitulo.value = doc.titulo;
             el.inpTopico.value = doc.topico;
 
-            if (doc.link.startsWith("PDF_LOCAL:")) {
+            if (doc.tipo === "PDF") {
                 formDocumento.querySelector('input[name="tipo-doc"][value="pdf"]').checked = true;
                 alternarTipoDocumento();
             } else {
@@ -349,8 +346,10 @@
             }
         } else {
             const arquivo = el.inpArquivo.files[0];
+            const emEdicao = Boolean(el.campoId.value);
             const ehPdf = arquivo && (arquivo.type === "application/pdf" || arquivo.name.toLowerCase().endsWith(".pdf"));
-            if (!ehPdf) {
+
+            if (!ehPdf && !emEdicao) {
                 marcarErro(el.inpArquivo, true);
                 valido = false;
             }
@@ -373,53 +372,108 @@
         marcarErro(el.inpArquivo, false);
     }
 
-    function salvarDocumento(event) {
+    async function salvarDocumento(event) {
         event.preventDefault();
+
+        const idEdicao = el.campoId.value;
+
+        if (idEdicao) {
+            if (!exigirGerenciamento("Editar"))
+                return;
+        } else {
+            if (!exigirLogin("Submeter documento"))
+                return;
+        }
+
         if (!validarFormulario())
             return;
 
-        const tipo = formDocumento.querySelector('input[name="tipo-doc"]:checked').value;
-        const idEdicao = el.campoId.value;
+        const tipoSelecionado = formDocumento.querySelector('input[name="tipo-doc"]:checked').value;
+        const tipo = tipoSelecionado === "link" ? "LINK" : "PDF";
         const dados = {
             titulo: el.inpTitulo.value.trim(),
-            topico: el.inpTopico.value.trim()
+            topico: el.inpTopico.value.trim(),
+            tipo: tipo,
+            url: tipo === "LINK" ? el.inpLink.value.trim() : null
         };
+        const formData = new FormData();
 
-        if (tipo === "link") {
-            dados.link = el.inpLink.value.trim();
-        } else {
+        formData.append("dados", new Blob([JSON.stringify(dados)], {type: "application/json"}));
+
+        if (tipo === "PDF") {
             const arquivo = el.inpArquivo.files[0];
+
             if (arquivo) {
-                dados.link = "PDF_LOCAL:" + arquivo.name;
-            } else if (idEdicao) {
-                const alvo = documentos.find((d) => d.id === Number(idEdicao));
-                dados.link = alvo ? alvo.link : "";
-            } else {
-                dados.link = "";
+                formData.append("arquivo", arquivo);
             }
         }
 
-        if (idEdicao) {
-            const alvo = documentos.find((d) => d.id === Number(idEdicao));
-            if (alvo) {
-                const arquivo = tipo === "pdf" ? el.inpArquivo.files[0] : null;
-                if (arquivo)
-                    persistirPdfLocal(alvo.id, arquivo);
-                Object.assign(alvo, dados);
-                salvarEstadoDocumentos();
-            }
-            toast("Documento atualizado com sucesso.");
-        } else {
-            const novoId = proximoIdDocumento();
-            if (tipo === "pdf")
-                persistirPdfLocal(novoId, el.inpArquivo.files[0]);
-            pendentes.push({id: novoId, ...dados});
-            localStorage.setItem("docbank_pendentes", JSON.stringify(pendentes));
-            toast("Documento enviado para aprovação. Ele aparecerá na tela inicial quando aprovado.");
-        }
+        try {
+            const csrfToken = await obterCsrfToken();
+            const url = idEdicao ? `/api/documentos/${idEdicao}` : "/api/documentos";
+            const metodo = idEdicao ? "PUT" : "POST";
 
-        fecharModal();
-        atualizarTabela();
+            const resposta = await fetch(url, {
+                method: metodo,
+                credentials: "same-origin",
+                headers: {"X-XSRF-TOKEN": csrfToken},
+                body: formData
+            });
+
+            let respostaDados = {};
+
+            try {
+                respostaDados = await resposta.json();
+            } catch {
+                respostaDados = {};
+            }
+
+            if (resposta.status === 201) {
+                fecharModal();
+                documentoSelecionado = null;
+                await carregarDocumentos();
+                toast("Documento enviado para aprovação. Ele aparecerá na tela inicial quando aprovado.");
+                return;
+            }
+
+            if (resposta.status === 200) {
+                fecharModal();
+                await carregarDocumentos();
+                toast("Documento atualizado com sucesso.");
+                return;
+            }
+
+            if (resposta.status === 400) {
+                toast(respostaDados.mensagem || "Os dados do documento são inválidos.", true);
+                return;
+            }
+
+            if (resposta.status === 403) {
+                toast(respostaDados.mensagem || "Você não possui permissão para realizar esta operação.", true);
+                return;
+            }
+
+            if (resposta.status === 404) {
+                toast(respostaDados.mensagem || "Documento não encontrado.", true);
+                return;
+            }
+
+            if (resposta.status === 409) {
+                toast(respostaDados.mensagem || "Não foi possível atualizar o documento.", true);
+                return;
+            }
+
+            if (resposta.status === 413) {
+                toast("O arquivo PDF excede o limite permitido.", true);
+                return;
+            }
+
+            toast(respostaDados.mensagem || "Não foi possível salvar o documento.", true);
+
+        } catch (erro) {
+            console.error("Erro ao salvar documento:", erro);
+            toast("Não foi possível conectar ao servidor. Tente novamente.", true);
+        }
     }
 
     function abrirDocumento() {
@@ -428,20 +482,8 @@
             return;
         }
 
-        if (documentoSelecionado.link.startsWith("PDF_LOCAL:")) {
-            const arquivo = pdfsEmMemoria[documentoSelecionado.id];
-            if (arquivo) {
-                const urlTemporaria = URL.createObjectURL(arquivo);
-                window.open(urlTemporaria, "_blank", "noopener");
-                setTimeout(() => URL.revokeObjectURL(urlTemporaria), 60000);
-                return;
-            }
-            const dataUrl = localStorage.getItem("docbank_pdfdata_" + documentoSelecionado.id);
-            if (dataUrl) {
-                window.open(dataUrl, "_blank", "noopener");
-                return;
-            }
-            toast("O arquivo deste PDF não está mais disponível (excedeu o limite de persistência do protótipo).", true);
+        if (!documentoSelecionado.link) {
+            toast("O documento não possui um endereço disponível.", true);
             return;
         }
 
@@ -462,9 +504,10 @@
         return true;
     }
 
-    function deletarDocumento() {
+    async function deletarDocumento() {
         if (!exigirGerenciamento("Deletar"))
             return;
+
         if (!documentoSelecionado) {
             toast("Selecione um documento para deletar.", true);
             return;
@@ -472,25 +515,52 @@
 
         const idParaDeletar = documentoSelecionado.id;
 
-        const idx = documentos.findIndex((d) => d.id === idParaDeletar);
-        if (idx > -1) {
-            documentos.splice(idx, 1);
-            salvarEstadoDocumentos();
+        try {
+            const csrfToken = await obterCsrfToken();
+            const resposta = await fetch(
+                    `/api/documentos/${idParaDeletar}`,
+                    {
+                        method: "DELETE",
+                        credentials: "same-origin",
+                        headers: {"X-XSRF-TOKEN": csrfToken}
+                    }
+            );
+
+            if (resposta.status === 204) {
+                documentoSelecionado = null;
+
+                await carregarDocumentos();
+
+                toast(`Documento #${idParaDeletar} deletado.`);
+
+                return;
+            }
+
+            let dados = {};
+
+            try {
+                dados = await resposta.json();
+            } catch {
+                dados = {};
+            }
+
+            if (resposta.status === 403) {
+                toast(dados.mensagem || "Você não possui permissão para deletar este documento.", true);
+                return;
+            }
+
+            if (resposta.status === 404) {
+                toast(dados.mensagem || "Documento não encontrado.", true);
+                await carregarDocumentos();
+                return;
+            }
+
+            toast(dados.mensagem || "Não foi possível deletar o documento.", true);
+
+        } catch (erro) {
+            console.error("Erro ao deletar documento:", erro);
+            toast("Não foi possível conectar ao servidor. Tente novamente.", true);
         }
-
-        const aprovadosLocal = JSON.parse(localStorage.getItem("docbank_aprovados") || "[]");
-        const idxAprovado = aprovadosLocal.findIndex((d) => d.id === idParaDeletar);
-        if (idxAprovado > -1) {
-            aprovadosLocal.splice(idxAprovado, 1);
-            localStorage.setItem("docbank_aprovados", JSON.stringify(aprovadosLocal));
-        }
-
-        localStorage.removeItem("docbank_pdfdata_" + idParaDeletar);
-        delete pdfsEmMemoria[idParaDeletar];
-
-        toast(`Documento #${idParaDeletar} deletado.`);
-        documentoSelecionado = null;
-        atualizarTabela();
     }
 
     function editarDocumento() {
@@ -548,11 +618,6 @@
             el.btnSair.disabled = true;
             await Sessao.logout();
             documentoSelecionado = null;
-
-            for (let key in pdfsEmMemoria) {
-                delete pdfsEmMemoria[key];
-            }
-
             atualizarInterface();
             atualizarTabela();
             toast("Sessão encerrada. Até logo!");
@@ -608,4 +673,5 @@
     atualizarInterface();
     atualizarTabela();
     Sessao.carregar();
+    carregarDocumentos();
 })();
