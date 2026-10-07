@@ -47,40 +47,87 @@
         if (!valido) {
             toast("Preencha email e senha para continuar.", true);
         }
+
         return valido;
     }
 
-    function autenticar(event) {
+    async function obterCsrfToken() {
+        const resposta = await fetch("/api/auth/csrf", {
+            method: "GET",
+            credentials: "same-origin"
+        });
+
+        if (!resposta.ok) {
+            throw new Error("Não foi possível obter o token de segurança.");
+        }
+
+        const dados = await resposta.json();
+        return dados.token;
+    }
+
+    async function autenticar(event) {
         event.preventDefault();
-        if (!validarFormulario()) return;
+
+        if (!validarFormulario())
+            return;
 
         const email = inpEmail.value.trim().toLowerCase();
         const senha = inpSenha.value;
 
-        const contas = JSON.parse(localStorage.getItem("docbank_contas") || "[]");
-        const conta = contas.find((c) => c.email === email && c.senha === senha);
+        try {
+            const csrfToken = await obterCsrfToken();
 
-        if (!conta) {
-            marcarErro(inpEmail, true);
-            marcarErro(inpSenha, true);
-            toast("Falha na autenticação. Verifique se suas credenciais estão corretas", true);
-            return;
+            const resposta = await fetch("/api/auth/login", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-XSRF-TOKEN": csrfToken
+                },
+                body: JSON.stringify({
+                    email: email,
+                    senha: senha
+                })
+            });
+
+            let dados = {};
+
+            try {
+                dados = await resposta.json();
+            } catch {
+                dados = {};
+            }
+
+            if (resposta.ok) {
+                const nome = dados.usuario?.nome || "usuário";
+
+                toast(`Bem-vindo(a) de volta, ${nome}!`);
+
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 800);
+
+                return;
+            }
+
+            if (resposta.status === 403) {
+                toast(dados.mensagem || "Esta conta está suspensa. Entre em contato com um administrador.", true);
+                return;
+            }
+
+            if (resposta.status === 401) {
+                marcarErro(inpEmail, true);
+                marcarErro(inpSenha, true);
+                toast(dados.mensagem || "Falha na autenticação. Verifique se suas credenciais estão corretas", true);
+                return;
+            }
+
+            toast(dados.mensagem || "Não foi possível realizar o login.", true);
+
+        } catch (erro) {
+            console.error("Erro ao realizar login:", erro);
+            toast("Não foi possível conectar ao servidor. Tente novamente.", true);
         }
-
-        if (conta.nivel === "Suspenso") {
-            toast("Esta conta está suspensa. Entre em contato com um administrador.", true);
-            return;
-        }
-
-        localStorage.setItem(
-            "docbank_usuario",
-            JSON.stringify({ nome: conta.nome, email: conta.email, nivel: conta.nivel })
-        );
-
-        toast(`Bem-vindo(a) de volta, ${conta.nome}!`);
-        setTimeout(() => {
-            window.location.href = "index.html";
-        }, 800);
     }
 
     form.addEventListener("submit", autenticar);

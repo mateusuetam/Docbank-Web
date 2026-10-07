@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -51,6 +52,8 @@ public class AuthController {
         try {
             Usuario usuario = authService.autenticar(request.email(), request.senha(), httpRequest, httpResponse);
             return ResponseEntity.ok(new AuthResponse("Login realizado com sucesso.", UsuarioResponse.from(usuario)));
+        } catch (DisabledException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("mensagem", "Esta conta está suspensa. Entre em contato com um administrador."));
         } catch (AuthenticationException exception) {
             String mensagem = "Falha na autenticação. Verifique se suas credenciais estão corretas.";
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("mensagem", mensagem));
