@@ -2,16 +2,50 @@
     "use strict";
 
     const Sessao = {
-        CHAVE: "docbank_usuario",
-        get usuario() {
-            const dados = localStorage.getItem(this.CHAVE);
-            return dados ? JSON.parse(dados) : null;
+        usuario: null,
+        carregada: false,
+
+        async carregar() {
+            try {
+                const resposta = await fetch("/api/auth/me", {
+                    method: "GET",
+                    credentials: "same-origin",
+                    cache: "no-store"
+                });
+
+                if (resposta.ok) {
+                    this.usuario = await resposta.json();
+                } else if (resposta.status === 401 || resposta.status === 403) {
+                    this.usuario = null;
+                } else {
+                    throw new Error(`Falha ao verificar a sessão. HTTP ${resposta.status}.`);
+                }
+            } catch (erro) {
+                console.error("Erro ao verificar sessão:", erro);
+                this.usuario = null;
+                toast("Não foi possível verificar a sessão com o servidor.", true);
+            } finally {
+                this.carregada = true;
+                atualizarInterface();
+                atualizarTabela();
+            }
         },
-        login(nome, email, nivel = "Usuario") {
-            localStorage.setItem(this.CHAVE, JSON.stringify({ nome, email, nivel }));
-        },
-        logout() {
-            localStorage.removeItem(this.CHAVE);
+
+        async logout() {
+            const csrfToken = await obterCsrfToken();
+
+            const resposta = await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-XSRF-TOKEN": csrfToken
+                }
+            });
+
+            if (!resposta.ok) {
+                throw new Error(`Falha ao encerrar sessão. HTTP ${resposta.status}.`);
+            }
+            this.usuario = null;
         }
     };
 
@@ -24,7 +58,8 @@
 
     const aprovadosSalvos = JSON.parse(localStorage.getItem("docbank_aprovados") || "[]");
     aprovadosSalvos.forEach((d) => {
-        if (!documentos.some((x) => x.id === d.id)) documentos.push(d);
+        if (!documentos.some((x) => x.id === d.id))
+            documentos.push(d);
     });
 
     function salvarEstadoDocumentos() {
@@ -47,7 +82,7 @@
     }
     let documentoSelecionado = null;
 
-    let ordenacao = { chave: null, dir: 1 };
+    let ordenacao = {chave: null, dir: 1};
 
     const pdfsEmMemoria = {};
     const $ = (sel) => document.querySelector(sel);
@@ -90,37 +125,56 @@
         toastTimer = setTimeout(() => el.toast.classList.remove("visivel"), 2600);
     }
 
+    async function obterCsrfToken() {
+        const resposta = await fetch("/api/auth/csrf", {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store"
+        });
+
+        if (!resposta.ok) {
+            throw new Error("Não foi possível obter o token de segurança.");
+        }
+
+        const dados = await resposta.json();
+        return dados.token;
+    }
+
     function atualizarInterface() {
+        const carregando = !Sessao.carregada;
         const logado = Sessao.usuario !== null;
 
         el.btnAbrir.disabled = false;
-        el.btnCadastrar.disabled = logado;
-        el.btnEntrar.disabled = logado;
+        el.btnCadastrar.disabled = carregando || logado;
+        el.btnEntrar.disabled = carregando || logado;
 
-        const nivel = logado ? Sessao.usuario.nivel : null;
-        const podeGerenciar = logado && (nivel === "Moderador" || nivel === "Administrador");
+        const cargo = logado ? Sessao.usuario.cargo : null;
+        const podeGerenciar = logado && (cargo === "MODERADOR" || cargo === "ADMINISTRADOR");
 
-        el.btnSubmeter.disabled = !logado;
-        el.btnBiblioteca.disabled = !logado;
-        el.btnSair.disabled = !logado;
-        el.btnFavoritos.disabled = !logado;
+        el.btnSubmeter.disabled = carregando || !logado;
+        el.btnBiblioteca.disabled = carregando || !logado;
+        el.btnSair.disabled = carregando || !logado;
+        el.btnFavoritos.disabled = carregando || !logado;
 
-        el.btnPainel.disabled = !podeGerenciar;
-        el.btnDeletar.disabled = !podeGerenciar;
-        el.btnEditar.disabled = !podeGerenciar;
+        el.btnPainel.disabled = carregando || !podeGerenciar;
+        el.btnDeletar.disabled = carregando || !podeGerenciar;
+        el.btnEditar.disabled = carregando || !podeGerenciar;
 
-        el.infoUsuario.textContent = logado
-            ? "Usuário: " + Sessao.usuario.nome
-            : "Usuário: Nenhum usuário logado";
-
+        el.infoUsuario.textContent = logado ? "Usuário: " + Sessao.usuario.nome : "Usuário: Nenhum usuário logado";
         el.tbody.classList.toggle("modo-visitante", !logado);
     }
 
     function exigirLogin(acao) {
+        if (!Sessao.carregada) {
+            toast("Aguarde enquanto sua sessão é verificada.", true);
+            return false;
+        }
+
         if (!Sessao.usuario) {
             toast(`Ação "${acao}" disponível apenas para contas logadas.`, true);
             return false;
         }
+
         return true;
     }
 
@@ -148,10 +202,10 @@
             })();
 
             tr.innerHTML =
-                `<td>${doc.id}</td>` +
-                `<td>${escapeHtml(doc.titulo)}</td>` +
-                `<td>${escapeHtml(doc.topico)}</td>` +
-                celulaLink;
+                    `<td>${doc.id}</td>` +
+                    `<td>${escapeHtml(doc.titulo)}</td>` +
+                    `<td>${escapeHtml(doc.topico)}</td>` +
+                    celulaLink;
 
             tr.addEventListener("click", () => selecionarDocumento(doc, tr));
             el.tbody.appendChild(tr);
@@ -171,10 +225,12 @@
     }
 
     function ordenarLista(lista) {
-        if (!ordenacao.chave) return lista;
+        if (!ordenacao.chave)
+            return lista;
         const dir = ordenacao.dir;
         return [...lista].sort((a, b) => {
-            if (ordenacao.chave === "id") return (a.id - b.id) * dir;
+            if (ordenacao.chave === "id")
+                return (a.id - b.id) * dir;
             return String(a[ordenacao.chave]).localeCompare(String(b[ordenacao.chave]), "pt-BR") * dir;
         });
     }
@@ -188,8 +244,8 @@
 
         const filtrados = documentos.filter((d) =>
             d.titulo.toLowerCase().includes(termo) ||
-            d.topico.toLowerCase().includes(termo) ||
-            String(d.id).includes(termo)
+                    d.topico.toLowerCase().includes(termo) ||
+                    String(d.id).includes(termo)
         );
         renderizarTabela(ordenarLista(filtrados));
         atualizarIndicadoresOrdem();
@@ -197,10 +253,12 @@
 
     function alternarOrdenacao(chave) {
         if (ordenacao.chave === chave) {
-            if (ordenacao.dir === 1) ordenacao.dir = -1;
-            else ordenacao = { chave: null, dir: 1 };
+            if (ordenacao.dir === 1)
+                ordenacao.dir = -1;
+            else
+                ordenacao = {chave: null, dir: 1};
         } else {
-            ordenacao = { chave, dir: 1 };
+            ordenacao = {chave, dir: 1};
         }
         atualizarTabela();
     }
@@ -210,7 +268,8 @@
             const seta = th.querySelector(".seta-ord");
             const ativo = th.dataset.chave === ordenacao.chave;
             th.classList.toggle("ordenado", ativo);
-            if (seta) seta.textContent = ativo ? (ordenacao.dir === 1 ? "▲" : "▼") : "↕";
+            if (seta)
+                seta.textContent = ativo ? (ordenacao.dir === 1 ? "▲" : "▼") : "↕";
         });
     }
 
@@ -277,7 +336,12 @@
             const prefixoOk = /^https?:\/\//i.test(link);
             let urlOk = false;
             if (prefixoOk) {
-                try { new URL(link); urlOk = true; } catch { urlOk = false; }
+                try {
+                    new URL(link);
+                    urlOk = true;
+                } catch {
+                    urlOk = false;
+                }
             }
             if (!prefixoOk || !urlOk) {
                 marcarErro(el.inpLink, true);
@@ -292,7 +356,8 @@
             }
         }
 
-        if (!valido) toast("Corrija os campos destacados antes de salvar.", true);
+        if (!valido)
+            toast("Corrija os campos destacados antes de salvar.", true);
         return valido;
     }
 
@@ -300,15 +365,18 @@
         const tipo = formDocumento.querySelector('input[name="tipo-doc"]:checked').value;
         el.campoLink.style.display = tipo === "link" ? "" : "none";
         el.campoArquivo.style.display = tipo === "pdf" ? "" : "none";
-        if (tipo === "link") el.inpArquivo.value = "";
-        else el.inpLink.value = "";
+        if (tipo === "link")
+            el.inpArquivo.value = "";
+        else
+            el.inpLink.value = "";
         marcarErro(el.inpLink, false);
         marcarErro(el.inpArquivo, false);
     }
 
     function salvarDocumento(event) {
         event.preventDefault();
-        if (!validarFormulario()) return;
+        if (!validarFormulario())
+            return;
 
         const tipo = formDocumento.querySelector('input[name="tipo-doc"]:checked').value;
         const idEdicao = el.campoId.value;
@@ -335,15 +403,17 @@
             const alvo = documentos.find((d) => d.id === Number(idEdicao));
             if (alvo) {
                 const arquivo = tipo === "pdf" ? el.inpArquivo.files[0] : null;
-                if (arquivo) persistirPdfLocal(alvo.id, arquivo);
+                if (arquivo)
+                    persistirPdfLocal(alvo.id, arquivo);
                 Object.assign(alvo, dados);
                 salvarEstadoDocumentos();
             }
             toast("Documento atualizado com sucesso.");
         } else {
             const novoId = proximoIdDocumento();
-            if (tipo === "pdf") persistirPdfLocal(novoId, el.inpArquivo.files[0]);
-            pendentes.push({ id: novoId, ...dados });
+            if (tipo === "pdf")
+                persistirPdfLocal(novoId, el.inpArquivo.files[0]);
+            pendentes.push({id: novoId, ...dados});
             localStorage.setItem("docbank_pendentes", JSON.stringify(pendentes));
             toast("Documento enviado para aprovação. Ele aparecerá na tela inicial quando aprovado.");
         }
@@ -379,17 +449,22 @@
     }
 
     function exigirGerenciamento(acao) {
-        if (!exigirLogin(acao)) return false;
-        const nivel = Sessao.usuario.nivel;
-        if (nivel !== "Moderador" && nivel !== "Administrador") {
+        if (!exigirLogin(acao))
+            return false;
+
+        const cargo = Sessao.usuario.cargo;
+
+        if (cargo !== "MODERADOR" && cargo !== "ADMINISTRADOR") {
             toast(`Ação "${acao}" é exclusiva de Moderadores e Administradores.`, true);
             return false;
         }
+
         return true;
     }
 
     function deletarDocumento() {
-        if (!exigirGerenciamento("Deletar")) return;
+        if (!exigirGerenciamento("Deletar"))
+            return;
         if (!documentoSelecionado) {
             toast("Selecione um documento para deletar.", true);
             return;
@@ -419,7 +494,8 @@
     }
 
     function editarDocumento() {
-        if (!exigirGerenciamento("Editar")) return;
+        if (!exigirGerenciamento("Editar"))
+            return;
         if (!documentoSelecionado) {
             toast("Selecione um documento para editar.", true);
             return;
@@ -428,7 +504,8 @@
     }
 
     function adicionarFavoritos() {
-        if (!exigirLogin("Adicionar aos favoritos")) return;
+        if (!exigirLogin("Adicionar aos favoritos"))
+            return;
         if (!documentoSelecionado) {
             toast("Selecione um documento para favoritar.", true);
             return;
@@ -449,29 +526,41 @@
     el.btnFavoritos.addEventListener("click", adicionarFavoritos);
 
     el.btnSubmeter.addEventListener("click", () => {
-        if (exigirLogin("Submeter documento")) abrirModal("submeter");
+        if (exigirLogin("Submeter documento"))
+            abrirModal("submeter");
     });
 
     el.btnPainel.addEventListener("click", () => {
-        if (exigirGerenciamento("Painel de Controle")) window.location.href = "painel.html";
+        if (exigirGerenciamento("Painel de Controle"))
+            window.location.href = "painel.html";
     });
 
     el.btnBiblioteca.addEventListener("click", () => {
-        if (exigirLogin("Biblioteca Pessoal")) window.location.href = "biblioteca.html";
+        if (exigirLogin("Biblioteca Pessoal"))
+            window.location.href = "biblioteca.html";
     });
 
-    el.btnSair.addEventListener("click", () => {
-        if (!exigirLogin("Sair")) return;
-        Sessao.logout();
-        documentoSelecionado = null;
+    el.btnSair.addEventListener("click", async () => {
+        if (!exigirLogin("Sair"))
+            return;
 
-        for (let key in pdfsEmMemoria) {
-            delete pdfsEmMemoria[key];
+        try {
+            el.btnSair.disabled = true;
+            await Sessao.logout();
+            documentoSelecionado = null;
+
+            for (let key in pdfsEmMemoria) {
+                delete pdfsEmMemoria[key];
+            }
+
+            atualizarInterface();
+            atualizarTabela();
+            toast("Sessão encerrada. Até logo!");
+        } catch (erro) {
+            console.error("Erro ao encerrar sessão:", erro);
+            atualizarInterface();
+            toast("Não foi possível encerrar a sessão. Tente novamente.", true);
         }
-
-        atualizarInterface();
-        atualizarTabela();
-        toast("Sessão encerrada. Até logo!");
     });
 
     el.btnEntrar.addEventListener("click", () => {
@@ -489,10 +578,12 @@
     el.formDocumento.addEventListener("submit", salvarDocumento);
     $("#modal-cancelar").addEventListener("click", fecharModal);
     el.modalFundo.addEventListener("click", (e) => {
-        if (e.target === el.modalFundo) fecharModal();
+        if (e.target === el.modalFundo)
+            fecharModal();
     });
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") fecharModal();
+        if (e.key === "Escape")
+            fecharModal();
     });
 
     $(".logo").addEventListener("click", () => {
@@ -516,4 +607,5 @@
 
     atualizarInterface();
     atualizarTabela();
+    Sessao.carregar();
 })();
