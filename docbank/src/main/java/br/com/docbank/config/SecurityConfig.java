@@ -77,7 +77,9 @@ public class SecurityConfig {
                                 "/JS/**",
                                 "/error",
                                 "/favicon.ico",
-                                "/api/auth/csrf"
+                                "/api/auth/csrf",
+                                "/api/documentos",
+                                "/api/documentos/*/arquivo"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
